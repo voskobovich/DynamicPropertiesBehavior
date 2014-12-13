@@ -47,7 +47,7 @@ class DynamicPropertiesBehavior extends \yii\base\Behavior
 
             $validate = true;
             foreach ($models as $model) {
-                if (!$model->validate()) {
+                if ($model->hasErrors()) {
                     $validate = false;
                 }
             }
@@ -229,6 +229,7 @@ class DynamicPropertiesBehavior extends \yii\base\Behavior
                 $model = new $relation->modelClass();
                 $model->setAttributes($data);
                 $model->$bindingColumn = $ownerPK;
+                $model->validate();
 
                 $this->_values[$name][] = $model;
             }
