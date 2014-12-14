@@ -7,8 +7,8 @@
  */
 namespace app\components\behaviors;
 
-use app\components\ActiveRecord;
 use yii\base\Exception;
+use app\components\ActiveRecord;
 
 class DynamicPropertiesBehavior extends \yii\base\Behavior
 {
@@ -22,7 +22,7 @@ class DynamicPropertiesBehavior extends \yii\base\Behavior
      * Attributes value
      * @var array
      */
-    private $_values = array();
+    private $_values = [];
 
     /**
      * Events list
@@ -74,22 +74,30 @@ class DynamicPropertiesBehavior extends \yii\base\Behavior
 
             list($bindingColumn) = array_keys($relation->link);
 
-            // Remove relations
-            $connection->createCommand()
-                ->delete($tableName, "{$bindingColumn} = {$this->owner->getPrimaryKey()}")
-                ->execute();
+            $transaction = $connection->beginTransaction();
+            try {
 
-            $models = $this->getPropertyModels($name);
+                // Remove relations
+                $connection->createCommand()
+                    ->delete($tableName, "{$bindingColumn} = {$this->owner->getPrimaryKey()}")
+                    ->execute();
 
-            if (!empty($models)) {
-                $insertRows = array();
-                foreach ($models as $model) {
-                    array_push($insertRows, array_values($model->getAttributes()));
+                $models = $this->getPropertyModels($name);
+
+                if (!empty($models)) {
+                    $insertRows = [];
+                    foreach ($models as $model) {
+                        array_push($insertRows, array_values($model->getAttributes()));
+                    }
+
+                    $connection->createCommand()
+                        ->batchInsert($tableName, $tableColumns, $insertRows)
+                        ->execute();
                 }
 
-                $connection->createCommand()
-                    ->batchInsert($tableName, $tableColumns, $insertRows)
-                    ->execute();
+                $transaction->commit();
+            } catch (\yii\db\Exception $ex) {
+                $transaction->rollBack();
             }
         }
     }
